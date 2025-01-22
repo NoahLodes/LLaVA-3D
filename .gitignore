@@ -1,3 +1,16 @@
 754e884c-ea24-2175-8b34-cead19d4198d
 __pycache__
-.vscode
+.vscodeLLaVA-3D-Demo-Data/
+LLaVA-3D-Demo-Data/
+models 
+models1
+playground
+cuda_11.8.0_520.61.05_linux.run
+Detected*.zip
+*.tar.gz
+*.mp4
+*.bin
+*LLaVA-3D-Demo-Data*
+llava_3d.egg-info
+.*
+data

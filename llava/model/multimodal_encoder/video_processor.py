@@ -176,7 +176,13 @@ class RGBDVideoProcessor(ProcessorMixin):
         video_name = str(Path(*video_path.parts[-2:]))
         dataset = video.split('/')[-2]
         video_folder = str(Path(*video_path.parts[:-2]))
-        video_info = self.scene[video_name]
+        
+        print('     other relevant info: ', video_folder, video_name, video_path)
+        
+        video_info = self.scene[video_name] # For scannet: scannet/scene0356_00
+        
+        print(' video_name: ', video_name)
+        
         video_frames = [str(key) for key in video_info.keys() if key.startswith(dataset)]  # remove other paramters
 
         if len(video_frames) > self.num_frames:
@@ -276,7 +282,7 @@ class RGBDVideoProcessor(ProcessorMixin):
         return video_info
 
     def subsample_frames(self, video):
-        r"""
+        """
         Actually we may need to adapt this function for different datasets
         """ 
         if 'scannet' in video:

@@ -100,7 +100,8 @@ def eval_model(args):
     prompt = conv.get_prompt()
 
     image_files = image_parser(args)
-    images = load_images(image_files)
+    print("Image Files: ", image_files)
+    images = load_images(image_files) # TODO: Just process the images related to the current relationship processing
     image_sizes = [x.size for x in images]
     images_tensor = process_images(
         images,
@@ -114,6 +115,8 @@ def eval_model(args):
         .cuda()
     )
 
+    # 
+    print("Prompt: ", prompt)
     with torch.inference_mode():
         output_ids = model.generate(
             input_ids,

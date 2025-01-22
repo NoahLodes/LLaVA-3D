@@ -27,3 +27,5 @@ DEFAULT_POINTS_TOKEN = "<points>"
 DEFAULT_LOC_START_TOKEN = "<loc_start>"
 DEFAULT_LOC_END_TOKEN = "<loc_end>"
 # ======================================================================================================
+
+CONF_PATH_R3SCAN_RAW = "data/3RScan"

@@ -190,7 +190,8 @@ def process_images(images, image_processor, model_cfg):
 
 def process_videos(videos, video_processor, mode='random', device=None, text=None):
     if isinstance(videos, str):
-        videos = [videos]
+        videos = [videos] # [..., './LLaVA-3D-Demo-Data/scannet/scene0356_00', ...]
+    
     new_videos = []
     for video in videos:
         video = video_processor.preprocess(video, return_tensors='pt', mode=mode, device=device, text=text)
@@ -207,6 +208,62 @@ def process_videos(videos, video_processor, mode='random', device=None, text=Non
     videos_dict['poses'] = torch.stack(new_poses, dim=0)
     videos_dict['intrinsics'] = torch.stack(new_intrinsics, dim=0)
     return videos_dict
+
+
+
+def process_video_common_frames(videos, video_processor, mode='random', device=None, text=None, common_frames=None):
+    """
+    Processes videos to extract images, depths, poses, and intrinsics. 
+    If `common_frames` is provided, only those frames are included in the output.
+
+    Args:
+        videos (str or list): Path(s) to the video(s).
+        video_processor: Video processing object with a preprocess method.
+        mode (str): Processing mode (e.g., 'random').
+        device: Device for processing tensors.
+        text (str): Optional text input for additional context.
+        common_frames (list): List of frame indices or names to include.
+
+    Returns:
+        dict: Processed videos with filtered frames, including images, depths, poses, and intrinsics.
+    """
+    if isinstance(videos, str):
+        videos = [videos]
+    new_videos = []
+    
+    for video in videos:
+        # Preprocess the video
+        video_data = video_processor.preprocess(video, return_tensors='pt', mode=mode, device=device, text=text)
+        print('\n')
+        print('video_data:', video_data)
+        print('\n')
+        #TODO: Verify the video_data
+        if common_frames:
+            # Filter frames based on common_frames
+            filtered_indices = [
+                idx for idx, frame_name in enumerate(video_data['frame_names']) if frame_name in common_frames
+            ]
+            video_data['images'] = video_data['images'][filtered_indices]
+            video_data['depth_images'] = video_data['depth_images'][filtered_indices]
+            video_data['poses'] = video_data['poses'][filtered_indices]
+            video_data['intrinsic'] = video_data['intrinsic'][filtered_indices]
+
+        new_videos.append(video_data)
+    # Aggregate data across videos
+    new_images = [video['images'] for video in new_videos]
+    new_depths = [video['depth_images'] for video in new_videos]
+    new_poses = [video['poses'] for video in new_videos]
+    new_intrinsics = [video['intrinsic'] for video in new_videos]
+    
+    videos_dict = dict()
+    videos_dict['images'] = torch.stack(new_images, dim=0)
+    videos_dict['depths'] = torch.stack(new_depths, dim=0)
+    videos_dict['poses'] = torch.stack(new_poses, dim=0)
+    videos_dict['intrinsics'] = torch.stack(new_intrinsics, dim=0)
+    
+    return videos_dict
+
+
 
 
 def tokenizer_image_token(prompt, tokenizer, image_token_index=IMAGE_TOKEN_INDEX, return_tensors=None):

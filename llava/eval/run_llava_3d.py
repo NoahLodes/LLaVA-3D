@@ -14,6 +14,7 @@ from llava.utils import disable_torch_init
 from llava.mm_utils import (
     process_images,
     process_videos,
+    process_video_common_frames,
     tokenizer_special_token,
     get_model_name_from_path,
 )
@@ -24,7 +25,12 @@ import requests
 from PIL import Image
 from io import BytesIO
 import re
+import json
+import numpy as np
+import os
 
+#from llava.constants import CONF_PATH_R3SCAN_RAW
+#from open3dsg.open_dataset import Open2D3DSGDataset
 
 def image_parser(args):
     out = args.image_file.split(args.sep)
@@ -124,7 +130,8 @@ def eval_model(args):
     conv.append_message(conv.roles[1], None)
     prompt = conv.get_prompt()
 
-    if mode == 'image':
+    if mode == 'image': 
+        # Load images from common frames
         image_files = image_parser(args)
         images = load_images(image_files)
         image_sizes = [x.size for x in images]
@@ -138,15 +145,24 @@ def eval_model(args):
         intrinsics_tensor = None
         clicks_tensor = None
 
-    if mode == 'video':
+    if mode == 'video': 
+        # process_video_common_frames
         videos_dict = process_videos(
             args.video_path,
             processor['video'],
             mode='random',
             device=model.device,
-            text=args.query
+            text=args.query,
         )
         images_tensor = videos_dict['images'].to(model.device, dtype=torch_dtype)
+        
+        #TODO: Store the img 90 depths and poses instrinsics
+        image = Image.fromarray(images_tensor[0])
+        image.save('/mnt/scratch/alegretelena/LLaVA-3D/notebooks/scene0356_00/00000.jpg')
+
+        image = Image.fromarray(images_tensor[110])
+        image.save('/mnt/scratch/alegretelena/LLaVA-3D/notebooks/scene0356_00/000110.jpg')
+
         depths_tensor = videos_dict['depths'].to(model.device, dtype=torch_dtype)
         poses_tensor = videos_dict['poses'].to(model.device, dtype=torch_dtype)
         intrinsics_tensor = videos_dict['intrinsics'].to(model.device, dtype=torch_dtype)
@@ -204,4 +220,29 @@ if __name__ == "__main__":
     parser.add_argument("--max_new_tokens", type=int, default=512)
     args = parser.parse_args()
 
-    eval_model(args)
+    """# Load dataset and relationships
+    scan_id = '754e884c-ea24-2175-8b34-cead19d4198d'
+    D3SSG = load_scan(CONF_PATH_R3SCAN_RAW, "relationships_train.json")
+    D3SSG = [r for r in D3SSG if r['scan'] == scan_id]
+
+    dataset = Open2D3DSGDataset(
+        relationships_R3SCAN=D3SSG,
+        relationships_scannet=None,
+        openseg=False,
+        img_dim=224,
+        rel_img_dim=224,
+        top_k_frames=5,
+        scales=3,
+        mini=False,
+        load_features=None,
+        blip=True,
+        llava=False,
+        half=False,
+        max_objects=9,
+        max_rels=72
+    )
+    # Process relationships and pass them to eval_model
+    data_dict = [obtain_the_common_images(instance) for instance in dataset]
+"""
+
+    eval_model(args) 
