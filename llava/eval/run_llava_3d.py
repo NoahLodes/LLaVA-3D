@@ -1,5 +1,7 @@
 import argparse
 import torch
+import pdb
+
 
 from llava.constants import (
     IMAGE_TOKEN_INDEX,
@@ -14,9 +16,10 @@ from llava.utils import disable_torch_init
 from llava.mm_utils import (
     process_images,
     process_videos,
-    process_video_common_frames,
     tokenizer_special_token,
     get_model_name_from_path,
+    obtain_the_common_images, 
+    load_scan
 )
 
 from PIL import Image
@@ -29,8 +32,8 @@ import json
 import numpy as np
 import os
 
-#from llava.constants import CONF_PATH_R3SCAN_RAW
-#from open3dsg.open_dataset import Open2D3DSGDataset
+from open3dsg.const import CONF_PATH_R3SCAN_RAW
+from open3dsg.open_dataset import Open2D3DSGDataset
 
 def image_parser(args):
     out = args.image_file.split(args.sep)
@@ -54,7 +57,7 @@ def load_images(image_files):
     return out
 
 
-def eval_model(args):
+def eval_model(args, data_dict, common_frames):
     # Model
     disable_torch_init()
 
@@ -152,16 +155,40 @@ def eval_model(args):
             processor['video'],
             mode='random',
             device=model.device,
-            text=args.query,
+            text=args.query, 
+            data_dict=data_dict,
+            common_frames=common_frames,
         )
-        images_tensor = videos_dict['images'].to(model.device, dtype=torch_dtype)
+        images_tensor = videos_dict['images'].to(model.device, dtype=torch_dtype) # Shape: [B, num_frames, channels, H, W]=[1, 20, 3, 336, 336]
+        print(f'Video process has finished:: {images_tensor.shape[1]} number of frames for relationship: {common_frames}')
+        #pdb.set_trace()
         
         #TODO: Store the img 90 depths and poses instrinsics
-        image = Image.fromarray(images_tensor[0])
-        image.save('/mnt/scratch/alegretelena/LLaVA-3D/notebooks/scene0356_00/00000.jpg')
+        """        
+        first_frame = images_tensor[0, 0]  # First frame
+        tenth_frame = images_tensor[0, 9]  # 10th frame
 
-        image = Image.fromarray(images_tensor[110])
-        image.save('/mnt/scratch/alegretelena/LLaVA-3D/notebooks/scene0356_00/000110.jpg')
+        # Convert to (H, W, C) format and move to CPU
+        first_frame_np = first_frame.permute(1, 2, 0).cpu().to(torch.float32).numpy()
+        tenth_frame_np = tenth_frame.permute(1, 2, 0).cpu().to(torch.float32).numpy()
+
+        # Convert pixel values to uint8 (assuming input is in range [0,1])
+        first_frame_np = (first_frame_np * 255).astype('uint8')
+        tenth_frame_np = (tenth_frame_np * 255).astype('uint8')
+
+        # Convert to PIL images
+        first_image = Image.fromarray(first_frame_np)
+        tenth_image = Image.fromarray(tenth_frame_np)
+
+        # Save images to disk
+        from pathlib import Path
+        current_directory = Path.cwd()
+        print(f"Current directory: {current_directory}")
+        first_image.save('scene0356_00_00000.jpg')
+        tenth_image.save('scene0356_00_00009.jpg')
+
+        print("Images saved successfully.")
+        """
 
         depths_tensor = videos_dict['depths'].to(model.device, dtype=torch_dtype)
         poses_tensor = videos_dict['poses'].to(model.device, dtype=torch_dtype)
@@ -218,12 +245,16 @@ if __name__ == "__main__":
     parser.add_argument("--top_p", type=float, default=None)
     parser.add_argument("--num_beams", type=int, default=1)
     parser.add_argument("--max_new_tokens", type=int, default=512)
+    parser.add_argument("--common_frames", type=bool, default=False)
     args = parser.parse_args()
 
-    """# Load dataset and relationships
+    # Load dataset and relationships
     scan_id = '754e884c-ea24-2175-8b34-cead19d4198d'
     D3SSG = load_scan(CONF_PATH_R3SCAN_RAW, "relationships_train.json")
-    D3SSG = [r for r in D3SSG if r['scan'] == scan_id]
+
+    for r in D3SSG:
+        if r['scan'] == scan_id:
+            D3SSG = [r]
 
     dataset = Open2D3DSGDataset(
         relationships_R3SCAN=D3SSG,
@@ -241,8 +272,11 @@ if __name__ == "__main__":
         max_objects=9,
         max_rels=72
     )
+    import pdb
+    
     # Process relationships and pass them to eval_model
-    data_dict = [obtain_the_common_images(instance) for instance in dataset]
-"""
+    for instance in dataset: 
+        data_dict = obtain_the_common_images(instance)
+    #data_dict = [obtain_the_common_images(instance) for instance in dataset]
 
-    eval_model(args) 
+    eval_model(args, data_dict=data_dict, common_frames=4) 

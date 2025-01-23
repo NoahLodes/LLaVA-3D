@@ -16,9 +16,6 @@ from multiprocessing import Manager
 import re
 
 from open3dsg.const import CONF_PATH_R3SCAN_RAW, CONF_PATH_R3SCAN_PROCESSED
-
-#from const import CONF_PATH_R3SCAN_RAW, CONF_PATH_R3SCAN_PROCESSED
-
 from itertools import accumulate
 import random
 from PIL import Image, ImageDraw

@@ -188,13 +188,18 @@ def process_images(images, image_processor, model_cfg):
         new_images = torch.stack(new_images, dim=0)
     return new_images
 
-def process_videos(videos, video_processor, mode='random', device=None, text=None):
+def process_videos(videos, video_processor, mode='random', data_dict=None, common_frames=False, device=None, text=None):
+
+    print('INSIDE process_videos method: ')
     if isinstance(videos, str):
-        videos = [videos] # [..., './LLaVA-3D-Demo-Data/scannet/scene0356_00', ...]
+        videos = [videos] # [..., './data/3rscan/754e884c-ea24-2175-8b34-cead19d4198d', ...]
     
     new_videos = []
     for video in videos:
-        video = video_processor.preprocess(video, return_tensors='pt', mode=mode, device=device, text=text)
+        print(f'    Processing video {video} of {len(videos)} with mode {mode} ')
+        # video = ./data/3rscan/754e884c-ea24-2175-8b34-cead19d4198d // mode = random 
+        video = video_processor.preprocess(video, return_tensors='pt', mode=mode, data_dict=data_dict, common_frames=common_frames, device=device, text=text)
+        print(f'        AFTER processing video {video.keys()}: video type {type(video)} ')
         new_videos.append(video)
 
     new_images = [video['images'] for video in new_videos]
@@ -208,62 +213,6 @@ def process_videos(videos, video_processor, mode='random', device=None, text=Non
     videos_dict['poses'] = torch.stack(new_poses, dim=0)
     videos_dict['intrinsics'] = torch.stack(new_intrinsics, dim=0)
     return videos_dict
-
-
-
-def process_video_common_frames(videos, video_processor, mode='random', device=None, text=None, common_frames=None):
-    """
-    Processes videos to extract images, depths, poses, and intrinsics. 
-    If `common_frames` is provided, only those frames are included in the output.
-
-    Args:
-        videos (str or list): Path(s) to the video(s).
-        video_processor: Video processing object with a preprocess method.
-        mode (str): Processing mode (e.g., 'random').
-        device: Device for processing tensors.
-        text (str): Optional text input for additional context.
-        common_frames (list): List of frame indices or names to include.
-
-    Returns:
-        dict: Processed videos with filtered frames, including images, depths, poses, and intrinsics.
-    """
-    if isinstance(videos, str):
-        videos = [videos]
-    new_videos = []
-    
-    for video in videos:
-        # Preprocess the video
-        video_data = video_processor.preprocess(video, return_tensors='pt', mode=mode, device=device, text=text)
-        print('\n')
-        print('video_data:', video_data)
-        print('\n')
-        #TODO: Verify the video_data
-        if common_frames:
-            # Filter frames based on common_frames
-            filtered_indices = [
-                idx for idx, frame_name in enumerate(video_data['frame_names']) if frame_name in common_frames
-            ]
-            video_data['images'] = video_data['images'][filtered_indices]
-            video_data['depth_images'] = video_data['depth_images'][filtered_indices]
-            video_data['poses'] = video_data['poses'][filtered_indices]
-            video_data['intrinsic'] = video_data['intrinsic'][filtered_indices]
-
-        new_videos.append(video_data)
-    # Aggregate data across videos
-    new_images = [video['images'] for video in new_videos]
-    new_depths = [video['depth_images'] for video in new_videos]
-    new_poses = [video['poses'] for video in new_videos]
-    new_intrinsics = [video['intrinsic'] for video in new_videos]
-    
-    videos_dict = dict()
-    videos_dict['images'] = torch.stack(new_images, dim=0)
-    videos_dict['depths'] = torch.stack(new_depths, dim=0)
-    videos_dict['poses'] = torch.stack(new_poses, dim=0)
-    videos_dict['intrinsics'] = torch.stack(new_intrinsics, dim=0)
-    
-    return videos_dict
-
-
 
 
 def tokenizer_image_token(prompt, tokenizer, image_token_index=IMAGE_TOKEN_INDEX, return_tensors=None):
@@ -466,3 +415,69 @@ class PlainBoxFormatter(BoxFormatter):
                 bboxes.append(bbox)
             ret.append(bboxes)
         return ret
+
+# ============================= Integration of Open3dsg ====================================
+
+import os
+import json 
+import numpy as np
+
+def load_scan(base_path, file_path):
+    return json.load(open(os.path.join(base_path, file_path)))["scans"]
+
+def obtain_frames(obj1_frames, obj2_frames, data_dict):    
+    """
+    Filters and finds common frames between two sets of object frames.
+        :param obj1_frames (list): List of tuples representing frames for object 1.
+        :param obj2_frames (list): List of tuples representing frames for object 2.
+        
+    Returns (list): A list of common frame names (strings) between the two objects.
+    """
+    if '3rscan' in data_dict['dataset']:
+        path =  data_dict['dataset'] +'/'+ data_dict['scene_id'] +'/sequence/'
+    elif 'scannet' in data_dict['dataset']:
+        path = data_dict['dataset'] +'/'+ data_dict['scene_id'] +'/color/'
+
+    # Filter frames starting with 'frame' for both objects
+    frames_obj1 = [path+frame[0] for frame in obj1_frames if isinstance(frame, tuple) and isinstance(frame[0], str) and frame[0].startswith('frame')]
+    frames_obj2 = [path+frame[0] for frame in obj2_frames if isinstance(frame, tuple) and isinstance(frame[0], str) and frame[0].startswith('frame')]
+     
+    # Find common frames
+    common_frames = np.intersect1d(frames_obj1, frames_obj2)
+    return common_frames.tolist()
+
+def obtain_the_common_images(data_dict): 
+    """
+    Processes relationships between objects and finds common frames for each pair of related objects.
+        :param data_dict (dict): A dictionary containing:
+            - 'triples' (list): A list of object relationships in the format [obj1, relation, obj2].
+            - 'obj2frame' (dict): A dictionary mapping object IDs to their respective frame lists.
+    
+    Returns common_frames (list): A list of common frames for each relationship, stored in `data_dict['common_frames']`.
+    """
+    # Validate that required keys exist
+    if 'triples' not in data_dict or 'obj2frame' not in data_dict:
+        raise KeyError("The dictionary must contain the keys 'triples' and 'obj2frame'.")
+    
+    relationships = data_dict['triples']
+    data_dict['common_frames'] = []  # Initialize the list of common frames
+    
+    for relationship in relationships:
+        obj1 = relationship[0]
+        obj2 = relationship[1]
+        
+        # Validate that objects exist in obj2frame
+        if obj1 not in data_dict['obj2frame'] or obj2 not in data_dict['obj2frame']:
+            print(f"Warning: {obj1} or {obj2} not found in 'obj2frame'.")
+            data_dict['common_frames'].append([])
+            continue
+        
+        obj1_frames = data_dict['obj2frame'][obj1]
+        obj2_frames = data_dict['obj2frame'][obj2]
+        
+        # Obtain common frames and add them
+        common_frames = obtain_frames(obj1_frames, obj2_frames, data_dict)
+        data_dict['common_frames'].append(common_frames)
+    
+    print("Processing completed. Common frames are stored in 'common_frames'.")
+    return data_dict

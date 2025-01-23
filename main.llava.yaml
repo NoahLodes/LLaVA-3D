@@ -18,20 +18,19 @@ taskRoles:
       cpu: 8
       memoryMB: 0
     commands:
-      - echo "Setting Work-Directory"
       - cd /mnt/scratch/LLaVA-3D
       - echo "Setting Work-Directory"
       - python3 -c "import os; print(os.getcwd())"
       - python3 -m pip install -e .
       - echo "Installed Dependencies"
-      - sudo pip uninstall requests urllib3 -y
-      - sudo pip install requests urllib3 
       - pip install --force-reinstall requests
       - sudo pip install torch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0 --index-url https://download.pytorch.org/whl/cu118
+      - sudo pip uninstall torch-scatter
+      - pip install torch-scatter -f https://data.pyg.org/whl/torch-2.1.0+cu118.html
       #- python3 llava/eval/run_llava_3d.py --model-path ChaimZhu/LLaVA-3D-7B --video-path ./LLaVA-3D-Demo-Data/scannet/scene0356_00 --query "Tell me the only object that I could see from the other room and describe the object."
       #- python3 llava/eval/run_llava_3d.py --model-path ChaimZhu/LLaVA-3D-7B --video-path ./data/3RScan/754e884c-ea24-2175-8b34-cead19d4198d --query "Tell me the only object that I could see from the other room and describe the object."
       - echo "Sleeping..."
-      - sleep 2h
+      - sleep 3h
 defaults:
   virtualCluster: default
 extras:

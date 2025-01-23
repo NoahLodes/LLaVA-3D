@@ -170,30 +170,46 @@ class RGBDVideoProcessor(ProcessorMixin):
 
         return video_info
 
-    def extract_embodiedscan_video(self, video):
+    def extract_embodiedscan_video(self, video, data_dict, common_frames):
         # video is the full path for the video
-        video_path = Path(video)
-        video_name = str(Path(*video_path.parts[-2:]))
-        dataset = video.split('/')[-2]
-        video_folder = str(Path(*video_path.parts[:-2]))
+        video_path = Path(video)                                    # video_path:    LLaVA-3D-Demo-Data/scannet/scene0356_00         // data/3RScan/754e884c-ea24-2175-8b34-cead19d4198d
+        video_name = str(Path(*video_path.parts[-2:])).lower()      # video_name:    scannet/scene0356_00                            // 3RScan/754e884c-ea24-2175-8b34-cead19d4198d
+        dataset = (video.split('/')[-2]).lower()                    # dataset:       scannet                                         // 3RScan
+        video_folder = str(Path(*video_path.parts[:-2]))            # video_folder:  LLaVA-3D-Demo-Data                              // data
+                                                                    # self.scene dict keys: scannet/scene0191_00                     // 3rscan/3rscan0002
         
-        print('     other relevant info: ', video_folder, video_name, video_path)
-        
-        video_info = self.scene[video_name] # For scannet: scannet/scene0356_00
-        
-        print(' video_name: ', video_name)
-        
-        video_frames = [str(key) for key in video_info.keys() if key.startswith(dataset)]  # remove other paramters
+        if dataset == '3rscan':
+            print('Processing 3rscan: ')
+            video_info = dict(filter(lambda item: item[0].startswith(dataset), self.scene.items()))   # video_info: {3rscan/3rscan0002: {}}
+            video_frames = []                                   # video_frames: {'}3rscan/754e884c-ea24-2175-8b34-cead19d4198d/sequence/frame-000000.color.jpg': {pose: list, }}
+            for _, scene_attr in video_info.items():
+                for attr in scene_attr.keys(): 
+                    if attr.startswith(video_name):
+                        video_frames.append(scene_attr)
+        else:         
+            video_info = self.scene[video_name]                                                 # video dict keys: 'scannet/posed_images/scene0356_00/00000.jpg'
+            video_frames = [str(key) for key in video_info.keys() if key.startswith(dataset)]   # Remove other paramters, keep scannet/posed_images/scene0356_00/00000.jpg
+        import pdb 
 
-        if len(video_frames) > self.num_frames:
+        if not common_frames and len(video_frames) > self.num_frames:
             sample_factor = len(video_frames) // self.num_frames
             start_point = 0
             sample_ids = [(start_point + i*sample_factor) % len(video_frames) for i in range(self.num_frames)]
-            sample_frames = [video_frames[i] for i in sample_ids]
-        elif len(video_frames) < self.num_frames:
+            sample_frames = [video_frames[i] for i in sample_ids] # sample_id: scannet/posed_images/scene0356_00/00000.jpg
+        elif not common_frames and len(video_frames) < self.num_frames:
             repeat_times = (self.num_frames // len(video_frames)) + 1
             # Extend the list by repeating it and then slice to get exactly self.num_frames elements
             sample_frames = (video_frames * repeat_times)[:self.num_frames]
+        elif common_frames: 
+            # Select the common frames of the relationship
+            print('common_frames: ', common_frames, type(common_frames), type(data_dict))
+            
+            sample_frames = []
+            for video_frame in video_frames[0].keys(): 
+                if video_frame in data_dict['common_frames'][int(common_frames)]: 
+                    sample_frames.append(video_frame)
+            print(sample_frames[0])
+            #sample_frames = [video_frame for video_frame in video_frames if video_frame.key() in data_dict['common_frames'][int(common_frames)]]
         else:
             sample_frames = video_frames
 
@@ -204,12 +220,14 @@ class RGBDVideoProcessor(ProcessorMixin):
             intrinsics = []
 
         for frame in sample_frames:
-            pose = np.array(video_info[frame]['pose']) # 4x4 array
+            
+            pose = np.array(video_frames[0][frame]['pose']) # 4x4 array
             image = os.path.join(video_folder, frame)
+            
             if 'scannet' in frame:
                 depth = os.path.join(video_folder, video_info[frame]['depth'])
             elif '3rscan' in frame:
-                depth = os.path.join(video_folder, frame.replace('color.jpg', 'depth.png').replace('3rscan', '3rscan_depth'))
+                depth = os.path.join(video_folder, frame.replace('color.jpg', 'depth.pgm')) #.replace('3rscan', '3rscan_depth'))
             elif 'matterport' in frame:
                 depth = os.path.join(video_folder, video_info[frame]['depth'])
                 intrinsic = np.array(video_info[frame]['intrinsic'])
@@ -219,17 +237,22 @@ class RGBDVideoProcessor(ProcessorMixin):
             images.append(image)
             depths.append(depth)
             poses.append(pose)
-
+            
         sampled_video_info = dict()
-
         if dataset == 'matterport3d':
             intrinsic_file = np.stack(intrinsics, axis=0) # Vx4x4 array
+            axis_align_matrix_file = np.array(video_info['axis_align_matrix'])  # 4x4 array
+        elif dataset == '3rscan': 
+            intrinsic_file = np.array(video_frames[0]['intrinsic'])              # 4x4 array
+            depth_intrinsic_file = np.array(video_frames[0]['depth_intrinsic'])  # 4x4 array
+            sampled_video_info['depth_intrinsic_file'] = depth_intrinsic_file
+            axis_align_matrix_file = np.array(video_frames[0]['axis_align_matrix'])  # 4x4 array
         else:
-            intrinsic_file = np.array(video_info['intrinsic']) # 4x4 array
+            intrinsic_file = np.array(video_info['intrinsic'])              # 4x4 array
             depth_intrinsic_file = np.array(video_info['depth_intrinsic'])  # 4x4 array
             sampled_video_info['depth_intrinsic_file'] = depth_intrinsic_file
-
-        axis_align_matrix_file = np.array(video_info['axis_align_matrix'])  # 4x4 array
+            axis_align_matrix_file = np.array(video_info['axis_align_matrix'])  # 4x4 array
+        
         sampled_video_info['sample_image_files'] = images
         sampled_video_info['sample_depth_image_files'] = depths
         sampled_video_info['sample_pose_files'] = poses
@@ -237,6 +260,7 @@ class RGBDVideoProcessor(ProcessorMixin):
         sampled_video_info['axis_align_matrix_file'] = axis_align_matrix_file
         sampled_video_info['dataset'] = dataset
         sampled_video_info['sample_frame_num'] = len(images)
+
         return sampled_video_info
 
     def extract_embodiedscan_frames(self, frames):
@@ -362,6 +386,8 @@ class RGBDVideoProcessor(ProcessorMixin):
                    video: str, 
                    return_tensors='pt', 
                    mode='random', 
+                   data_dict=None,
+                   common_frames=False,
                    device=None, 
                    text=None,
                    do_rescale=True,
@@ -371,19 +397,27 @@ class RGBDVideoProcessor(ProcessorMixin):
             video:  1. str video id / single video frame
                     2. list  list of video frames
         """
+        print('Starting the preprocessing fo the process[video]. ')
         if isinstance(video, list):   # list of video frames only could be embodiedscan data
+            print('extract_embodiedscan_frames')
             video_info = self.extract_embodiedscan_frames(video)
         elif video.endswith('png') or video.endswith('jpg'):
+            print('extract_frames')
             video_info = self.extract_frames(video)
         elif 'frames' in video:  # scene-based odin data
+            print('INSIDE THE frames ')
             if mode == 'random':
-                video_info = self.subsample_frames(video)
+                print(f'random: {video}, ')
+                video_info = self.subsample_frames(video) 
+                print(f'random: {video_info}')
             else:
                 raise NotImplementedError
         elif 'openscan' in video:
+            print('openscan')
             video_info = self.extract_openscan_video(video)
         else:
-            video_info = self.extract_embodiedscan_video(video)
+            print('extract_embodiedscan_video')
+            video_info = self.extract_embodiedscan_video(video, data_dict, common_frames)
 
         dataset = video_info['dataset']
         sample_frame_num = video_info['sample_frame_num']
