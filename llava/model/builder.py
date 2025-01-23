@@ -25,7 +25,7 @@ from llava.constants import DEFAULT_IMAGE_PATCH_TOKEN, DEFAULT_IM_START_TOKEN, D
 
 
 def load_pretrained_model_llava(model_path, model_base, model_name, load_8bit=False, load_4bit=False, device_map="auto", device="cuda", use_flash_attn=False, **kwargs):
-    kwargs = {"device_map": device_map, **kwargs}
+    kwargs = {"device_map": {'':0}, **kwargs}
 
     if device != "cuda":
         kwargs['device_map'] = {"": device}
@@ -169,7 +169,8 @@ def load_pretrained_model_llava(model_path, model_base, model_name, load_8bit=Fa
 
 
 def load_pretrained_model(model_path, model_base, model_name, torch_dtype=torch.bfloat16, load_8bit=False, load_4bit=False, device_map="auto", device="cuda", use_flash_attn=False, **kwargs):
-    kwargs = {"device_map": device_map, **kwargs}
+    kwargs = {"device_map": {'':0}, **kwargs}
+    cache_dir = '../models/llava'
 
     if device != "cuda":
         kwargs['device_map'] = {"": device}
@@ -259,10 +260,11 @@ def load_pretrained_model(model_path, model_base, model_name, torch_dtype=torch.
                     **kwargs
                 )
             else:
-                tokenizer = AutoTokenizer.from_pretrained(model_path, use_fast=False)
+                tokenizer = AutoTokenizer.from_pretrained(model_path, use_fast=False, cache_dir = cache_dir)
                 model = LlavaLlamaForCausalLM.from_pretrained(
                     model_path,
                     low_cpu_mem_usage=True,
+                    cache_dir = cache_dir,
                     **kwargs
                 )
     else:
