@@ -14,3 +14,4 @@ Detected*.zip
 llava_3d.egg-info
 .*
 data
+*.png
