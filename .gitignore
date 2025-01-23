@@ -1,4 +1,5 @@
 754e884c-ea24-2175-8b34-cead19d4198d
+ab835faa-54c6-29a1-9b55-1a5217fcba19
 __pycache__
 .vscodeLLaVA-3D-Demo-Data/
 LLaVA-3D-Demo-Data/
@@ -15,3 +16,5 @@ llava_3d.egg-info
 .*
 data
 *.png
+*.yaml
+*.pyc
