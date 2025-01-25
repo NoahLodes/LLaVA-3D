@@ -52,14 +52,14 @@ class RGBDVideoProcessor(ProcessorMixin):
         do_convert_rgb (`bool`, *optional*, defaults to `True`):
             Whether to convert the image to RGB.
     """
-    def __init__(self, vision_tower_name, num_frames=24, tokenizer=None, **kwargs):
+    def __init__(self, vision_tower_name, cam_params_path, num_frames=24, tokenizer=None, **kwargs):
         super().__init__(**kwargs)
         self.vision_tower_name = vision_tower_name
         self.image_processor = CLIPImageProcessor.from_pretrained(self.vision_tower_name)
         self.tokenizer = tokenizer
         self.num_frames = num_frames
 
-        with open('./playground/data/annotations/embodiedscan_infos_full.json', 'r') as file:
+        with open(os.path.join(cam_params_path, 'embodiedscan_infos_full.json'), 'r') as file:
             self.scene = json.load(file)
 
     def valid_pose(self, video_poses):

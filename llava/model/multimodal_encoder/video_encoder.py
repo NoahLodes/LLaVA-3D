@@ -32,6 +32,7 @@ class RGBDVideoTower(nn.Module):
         self.voxel_size = 0.2
         self.vision_tower_name = vision_tower
         self.video_tower_name = video_tower
+        self.cam_params_path = args.cam_params_path
 
         if not delay_load:
             self.load_model()
@@ -45,7 +46,7 @@ class RGBDVideoTower(nn.Module):
             print('{} is already loaded, `load_model` called again, skipping.'.format(self.video_tower_name))
             return
 
-        self.video_processor = RGBDVideoProcessor(self.vision_tower_name, self.num_frames)
+        self.video_processor = RGBDVideoProcessor(self.vision_tower_name, num_frames = self.num_frames, cam_params_path = self.cam_params_path)
         if self.video_tower_name == 'SpatialAwareModule':
             self.video_tower = SpatialAwareModule()
         else:
