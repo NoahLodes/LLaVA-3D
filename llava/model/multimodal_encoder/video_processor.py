@@ -475,6 +475,7 @@ class RGBDVideoProcessor(ProcessorMixin):
         poses = [axis_align_matrix @ pose for pose in poses]
 
         video_dict = dict()
+        video_dict['intrinsic'] = intrinsic
         if images:
           video_dict['images'] = torch.stack(images)  # (V, 3, 336, 336)
           video_dict['depth_images'] = torch.stack(depth_images)  # (V, 336,336)
