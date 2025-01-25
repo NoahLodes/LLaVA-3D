@@ -195,16 +195,16 @@ class RGBDVideoProcessor(ProcessorMixin):
             video_frames = [str(key) for key in video_info.keys() if key.startswith(dataset)]   # Remove other paramters, keep scannet/posed_images/scene0356_00/00000.jpg
         import pdb 
 
-        if not use_relationship and len(video_frames) > self.num_frames:
+        if use_relationship is None and len(video_frames) > self.num_frames:
             sample_factor = len(video_frames) // self.num_frames
             start_point = 0
             sample_ids = [(start_point + i*sample_factor) % len(video_frames) for i in range(self.num_frames)]
             sample_frames = [video_frames[i] for i in sample_ids] # sample_id: scannet/posed_images/scene0356_00/00000.jpg
-        elif not use_relationship and len(video_frames) < self.num_frames:
+        elif use_relationship is None and len(video_frames) < self.num_frames:
             repeat_times = (self.num_frames // len(video_frames)) + 1
             # Extend the list by repeating it and then slice to get exactly self.num_frames elements
             sample_frames = (video_frames * repeat_times)[:self.num_frames]
-        elif use_relationship: 
+        elif use_relationship is not None: 
             # Select the common frames of the relationship
             sample_frames = []
             for video_frame in video_frames[0].keys(): 
@@ -389,7 +389,7 @@ class RGBDVideoProcessor(ProcessorMixin):
                    return_tensors='pt', 
                    mode='random', 
                    data_dict=None,
-                   use_relationship=False,
+                   use_relationship=None,
                    device=None, 
                    text=None,
                    do_rescale=True,
@@ -438,6 +438,11 @@ class RGBDVideoProcessor(ProcessorMixin):
         intrinsic = video_info['intrinsic_file']  # (V, 4, 4) or (4, 4)
         if not isinstance(intrinsic, np.ndarray):
             intrinsic = np.loadtxt(intrinsic)
+            
+        ## Default if relationships are none
+        image_size = (540, 960)
+        depth_image_size = (224, 172)
+        resize_shape = (437, 336)
 
         for id, image_file in enumerate(video_info['sample_image_files']):
             image = Image.open(image_file).convert('RGB')
@@ -477,9 +482,13 @@ class RGBDVideoProcessor(ProcessorMixin):
         poses = [axis_align_matrix @ pose for pose in poses]
 
         video_dict = dict()
-        video_dict['images'] = torch.stack(images)  # (V, 3, 336, 336)
-        video_dict['depth_images'] = torch.stack(depth_images)  # (V, 336,336)
-        video_dict['poses'] = torch.stack(poses)  # (V, 4, 4)
-        video_dict['intrinsic'] = intrinsic  # (V, 4, 4)
+        if images:
+          video_dict['images'] = torch.stack(images)  # (V, 3, 336, 336)
+          video_dict['depth_images'] = torch.stack(depth_images)  # (V, 336,336)
+          video_dict['poses'] = torch.stack(poses)  # (V, 4, 4)
+        else:
+          video_dict['images'] = torch.zeros((1, 3, 336, 336))  
+          video_dict['depth_images'] = torch.zeros((1, 336, 336)) 
+          video_dict['poses'] = torch.zeros((1, 4, 4)) 
 
         return video_dict
