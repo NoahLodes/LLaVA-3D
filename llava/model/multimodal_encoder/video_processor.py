@@ -59,8 +59,12 @@ class RGBDVideoProcessor(ProcessorMixin):
         self.tokenizer = tokenizer
         self.num_frames = num_frames
 
-        with open(os.path.join(cam_params_path, 'embodiedscan_infos_full.json'), 'r') as file:
-            self.scene = json.load(file)
+        if cam_params_path == None:
+            with open(os.path.join("/content/drive/MyDrive/master_practical/data", 'embodiedscan_infos_full.json'), 'r') as file:
+                self.scene = json.load(file)
+        else:
+            with open(os.path.join(cam_params_path, 'embodiedscan_infos_full.json'), 'r') as file:
+                    self.scene = json.load(file)
 
     def valid_pose(self, video_poses):
         valid_video_poses = []
