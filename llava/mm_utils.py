@@ -190,16 +190,13 @@ def process_images(images, image_processor, model_cfg):
 
 def process_videos(videos, video_processor, mode='random', data_dict=None, use_relationship=False, device=None, text=None):
 
-    print('INSIDE process_videos method: ')
     if isinstance(videos, str):
         videos = [videos] # [..., './data/3rscan/754e884c-ea24-2175-8b34-cead19d4198d', ...]
     
     new_videos = []
     for video in videos:
-        print(f'    BEFORE: Processing scene {video} with num_frames={len(videos)}')
         # video = ./data/3rscan/754e884c-ea24-2175-8b34-cead19d4198d // mode = random 
         video = video_processor.preprocess(video, return_tensors='pt', mode=mode, data_dict=data_dict, use_relationship=use_relationship, device=device, text=text)
-        print(f'    AFTER: Scene is done processing. Information: {video.keys()} ')
         new_videos.append(video)
 
     new_images = [video['images'] for video in new_videos]
