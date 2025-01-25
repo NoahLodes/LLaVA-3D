@@ -168,13 +168,11 @@ def load_pretrained_model_llava(model_path, model_base, model_name, load_8bit=Fa
     return tokenizer, model, image_processor, context_len
 
 
-def load_pretrained_model(model_path, model_base, model_name, torch_dtype=torch.bfloat16, load_8bit=False, load_4bit=False, device_map="auto", device="cuda", use_flash_attn=False, **kwargs):
+def load_pretrained_model(model_path, model_base, model_name, torch_dtype=torch.bfloat16, load_8bit=False, load_4bit=False, device_map="auto", device="cuda", use_flash_attn=False, cache_dir = None, **kwargs):
     kwargs = {"device_map": {'':0}, **kwargs}
-    cache_dir = '../models/llava'
 
     if device != "cuda":
         kwargs['device_map'] = {"": device}
-
     if load_8bit:
         kwargs['load_in_8bit'] = True
     elif load_4bit:
