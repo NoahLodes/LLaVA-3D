@@ -13,12 +13,12 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
 ]
 dependencies = [
-    "transformers==4.37.2", "tokenizers==0.15.1", "sentencepiece==0.1.99", "shortuuid",
-    "accelerate==0.21.0", "peft", "bitsandbytes",
+    "transformers==4.47.1", "tokenizers==0.21.0", "sentencepiece==0.1.99", "shortuuid",
+    "accelerate==0.26.0", "peft", "bitsandbytes==0.45.0",
     "pydantic", "markdown2[all]", "numpy", "scikit-learn==1.2.2",
     "gradio==4.29.0", "gradio_client==0.16.1",
     "requests", "httpx==0.27.0", "uvicorn", "fastapi",
-    "einops==0.6.1", "einops-exts==0.0.4", "timm==0.6.13", "opencv-python", "protobuf"
+    "einops==0.6.1", "einops-exts==0.0.4", "timm==0.6.13", "opencv-python", "protobuf==3.20.3"
 ]
 
 [project.optional-dependencies]
