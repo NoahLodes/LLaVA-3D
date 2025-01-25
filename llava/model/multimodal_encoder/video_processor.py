@@ -183,7 +183,6 @@ class RGBDVideoProcessor(ProcessorMixin):
                                                                     # self.scene dict keys: scannet/scene0191_00                     // 3rscan/3rscan0002
         
         if dataset == '3rscan':
-            print('         [extract_embodiedscan_video]: Processing 3rscan: ')
             video_info = dict(filter(lambda item: item[0].startswith(dataset), self.scene.items()))   # video_info: {3rscan/3rscan0002: {}}
             video_frames = []                                   # video_frames: {'3rscan/754e884c-ea24-2175-8b34-cead19d4198d/sequence/frame-000000.color.jpg': {pose: list, }}
             for _, scene_attr in video_info.items():
@@ -399,24 +398,18 @@ class RGBDVideoProcessor(ProcessorMixin):
             video:  1. str video id / single video frame
                     2. list  list of video frames
         """
-        print('     Starting the preprocessing fo the process[video]. ')
         if isinstance(video, list):   # list of video frames only could be embodiedscan data
-            print('         Inside extract_embodiedscan_frames')
             video_info = self.extract_embodiedscan_frames(video)
         elif video.endswith('png') or video.endswith('jpg'):
-            print('         Inside  extract_frames')
             video_info = self.extract_frames(video)
         elif 'frames' in video:  # scene-based odin data
-            print('         Inside frames ')
             if mode == 'random':
                 video_info = self.subsample_frames(video) 
             else:
                 raise NotImplementedError
         elif 'openscan' in video:
-            print('         Inside openscan')
             video_info = self.extract_openscan_video(video)
         else:
-            print('         Inside  extract_embodiedscan_video')
             video_info = self.extract_embodiedscan_video(video, data_dict, use_relationship)
 
         dataset = video_info['dataset']
