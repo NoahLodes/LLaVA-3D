@@ -395,9 +395,9 @@ class Preprocessor():
         scan_id = relationship["scan"] + "-" + str(hex(relationship["split"]))[-1]
         folder = os.path.join(CONF_PATH_R3SCAN_PROCESSED, "preprocessed", scan_id[:-2])
         filepath = os.path.join(folder, f"data_dict_{scan_id[-1]}.pkl")
-        #if os.path.exists(filepath) and self.skip_existing:
-            # print('skipping already exists')
-           # return
+        if os.path.exists(filepath) and self.skip_existing:
+            print('skipping already exists')
+            return
 
         data_dict = self.process_one_scan(relationship, scan_id)
         if data_dict is None:
