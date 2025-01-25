@@ -422,7 +422,7 @@ class Open2D3DSGDataset(Dataset):
 
         return reference_imgs, rel2frame_mask
 
-    def blip_rel_frames(self, rel2frame, rel2frame_mask, scene_id, dataset, rel2frame_path, top_k=4, scales=2):
+    def blip_rel_frames(self, rel2frame, rel2frame_mask, scene_id, dataset, top_k=4, scales=2):
         reference_imgs = []
         reference_paths = []
         rel2frame_mask = {k: v*top_k*scales for k, v in rel2frame_mask.items()}
@@ -506,10 +506,9 @@ class Open2D3DSGDataset(Dataset):
 
             reference_imgs.append(imgs)
             rel_images_idxs.append(indices)
-            rel2frame_path.append(paths)
-            #rel2frame_path[objs] = [(s[1], i) for s in selected]
+            reference_paths.append(paths)
 
-        return reference_imgs, rel2frame_mask, rel2frame_path, rel_images_idxs
+        return reference_imgs, rel2frame_mask, reference_paths, rel_images_idxs
 
     def load_imgs(self, data_dict):
         obj_imgs, obj2frame_mask = self.obj_frame_selection(
@@ -536,9 +535,9 @@ class Open2D3DSGDataset(Dataset):
             data_dict['object_pixels'] = obj_frame_pixels
 
         if self.blip or self.llava:
-            data_dict['rel2frame_path'] = []
+            #data_dict['rel2frame_path'] = []
             rel_imgs, rel2frame_mask, rel2frame_path, rel_images_idxs = self.blip_rel_frames(
-                data_dict["rel2frame"], data_dict['rel2frame_mask'], data_dict["scene_id"], data_dict['dataset'], data_dict['rel2frame_path'], top_k=self.top_k_frames, scales=self.scales)
+                data_dict["rel2frame"], data_dict['rel2frame_mask'], data_dict["scene_id"], data_dict['dataset'], top_k=self.top_k_frames, scales=self.scales)
             blank_img_dim = (320, 240) if data_dict['dataset'] == 'scannet' else (224, 172)
             black_image = Image.new('RGB', blank_img_dim, (0, 0, 0))
             #rel_imgs.extend([[black_image]*self.top_k_frames*self.scales]*(self.max_rels-len(rel_imgs)))
