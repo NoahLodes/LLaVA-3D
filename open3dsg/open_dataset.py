@@ -15,7 +15,6 @@ from functools import partial
 from multiprocessing import Manager
 import re
 
-from open3dsg.const import CONF_PATH_R3SCAN_RAW, CONF_PATH_R3SCAN_PROCESSED
 from itertools import accumulate
 import random
 from PIL import Image, ImageDraw
@@ -97,14 +96,14 @@ def enclosing_bbox(bbox1, bbox2):
     return min(bbox1[0], bbox2[0]), min(bbox1[1], bbox2[1]), max(bbox1[2], bbox2[2]), max(bbox1[3], bbox2[3])
 
 
-def read_class(path):
-    file = open(os.path.join(CONF_PATH_R3SCAN_RAW, path), 'r')
-    category = file.readline().rstrip()
-    word_dict = []
-    while category:
-        word_dict.append(category)
-        category = file.readline().rstrip()
-    return word_dict
+# def read_class(path):
+#     file = open(os.path.join(self.path_3rscan_raw, path), 'r')
+#     category = file.readline().rstrip()
+#     word_dict = []
+#     while category:
+#         word_dict.append(category)
+#         category = file.readline().rstrip()
+#     return word_dict
 
 
 clip_scales = [1.0, 1.5, 1.2, 2.0, 2.5, 1.8, 2.2, 2.8]  # possible clip scales order by diversty
@@ -139,11 +138,11 @@ class DataDict:
         self.id2name = data_dict['id2name']
 
 
-def _load_data_tqdm(shared_list, relationship):
+def _load_data_tqdm(shared_list, relationship, processed_path):
     """
     Load all data into ram for faster training
     """
-    path = os.path.join(CONF_PATH_R3SCAN_PROCESSED, "preprocessed",
+    path = os.path.join(processed_path, "preprocessed",
                         "{}/data_dict_{}.pkl".format(relationship["scan"], str(hex(relationship["split"]))[-1]))
     try:
         data_dict = pickle.load(open(path, "rb"))
@@ -179,7 +178,10 @@ def _load_data_tqdm(shared_list, relationship):
 
 class Open2D3DSGDataset(Dataset):
 
-    def __init__(self, relationships_R3SCAN=None,
+    def __init__(self, 
+                path_3rscan_raw, 
+                 path_3rscan_processed,
+                 relationships_R3SCAN=None,
                  relationships_scannet=None,
                  img_dim=224,  # self.img_dim for 'ViT-B/32', 'ViT-B/16', 'ViT-L/14', 336 for ViT-L/14@336px
                  rel_img_dim=None,
@@ -192,7 +194,7 @@ class Open2D3DSGDataset(Dataset):
                  load_features=None,
                  blip=False,
                  llava=False,
-                 half=False
+                 half=False,
                  ):
         self.img_dim = img_dim
         self.rel_img_dim = rel_img_dim if rel_img_dim else img_dim
@@ -206,6 +208,10 @@ class Open2D3DSGDataset(Dataset):
         self.llava = llava
         self.max_objs = max_objects
         self.max_rels = max_rels
+        ## Raw data scans e.g. 754e884c-ea24-2175-8b34-cead19d4198d
+        self.path_3rscan_raw = path_3rscan_raw
+        #directory of processed files e.g. data_dict_3.pkl
+        self.path_3rscan_processed = path_3rscan_processed
 
         # these are hard-coded at the moment
         self.obj_vis_crit = 0.3
@@ -223,7 +229,7 @@ class Open2D3DSGDataset(Dataset):
             self.obj_vis_crit -= 0.1  # r3scan images are smaller than scannet lets adjust
             self.obj_mask_crit -= 0.1
             self.rel_vis_crit -= 0.1
-            process_map(partial(_load_data_tqdm, shared_list), self.relationships_R3SCAN, max_workers=8, chunksize=1)
+            process_map(partial(_load_data_tqdm, shared_list, processed_path = self.path_3rscan_processed), self.relationships_R3SCAN, max_workers=8, chunksize=1)
 
         self.scene_data = shared_list
         self.pixel_data = {}
@@ -267,7 +273,7 @@ class Open2D3DSGDataset(Dataset):
             #if dataset == 'scannet':
                # imgs = [Image.open(os.path.join(CONF.PATH.SCANNET_RAW, "scannet_2d", scene_id, "color", s[1])) for s in selected]
             #else:
-            imgs = [Image.open(os.path.join(CONF_PATH_R3SCAN_RAW, scene_id, 'sequence', s[1])).resize((224, 172)) for s in selected]
+            imgs = [Image.open(os.path.join(self.path_3rscan_raw, scene_id, 'sequence', s[1])).resize((224, 172)) for s in selected]
 
             cropped_imgs = [img.crop(scale_bbox(s[2], sc, img)) for img, s in zip(imgs, selected) for sc in clip_scales[:scales]]
             if dataset == '3rscan':
@@ -331,7 +337,7 @@ class Open2D3DSGDataset(Dataset):
             #if dataset == 'scannet':
                # imgs = [np.asarray(Image.open(os.path.join(CONF.PATH.SCANNET_RAW, "scannet_2d", scene_id, "color", s[1])))for s in selected]
             #else:
-            imgs = [np.asarray(Image.open(os.path.join(CONF_PATH_R3SCAN_RAW, scene_id, 'sequence', s[1])
+            imgs = [np.asarray(Image.open(os.path.join(self.path_3rscan_raw, scene_id, 'sequence', s[1])
                                               ).resize((224, 172)).rotate(-90, expand=True)) for s in selected]
             pixel_ids_img = [s[2] for s in selected]
 
@@ -406,7 +412,7 @@ class Open2D3DSGDataset(Dataset):
             #if dataset == 'scannet':
               #  imgs = [Image.open(os.path.join(CONF.PATH.SCANNET_RAW, "scannet_2d", scene_id, "color", s[1])) for s in selected]
             #else:
-            imgs = [Image.open(os.path.join(CONF_PATH_R3SCAN_RAW, scene_id, 'sequence', s[1])).resize((224, 172)) for s in selected]
+            imgs = [Image.open(os.path.join(self.path_3rscan_raw, scene_id, 'sequence', s[1])).resize((224, 172)) for s in selected]
 
             cropped_imgs = [img.crop(scale_bbox(enclosing_bbox(s[2], s[3]), 1+(sc-1)/2, img))
                             for img, s in zip(imgs, selected) for sc in clip_scales[:scales]]
@@ -488,10 +494,10 @@ class Open2D3DSGDataset(Dataset):
             #if dataset == 'scannet':
              #   imgs = [Image.open(os.path.join(CONF.PATH.SCANNET_RAW, "scannet_2d", scene_id, "color", s[1])) for s in selected]
             #else:
-            imgs = [Image.open(os.path.join(CONF_PATH_R3SCAN_RAW, scene_id, 'sequence', s[1])) for s in selected]
+            imgs = [Image.open(os.path.join(self.path_3rscan_raw, scene_id, 'sequence', s[1])) for s in selected]
             filenames = [s[1] for s in selected]
             indices = [int(re.search(r'frame-(\d+)\.color\.jpg', filename).group(1)) for filename in filenames]
-            paths = [os.path.join(CONF_PATH_R3SCAN_RAW.split('/')[-1], scene_id, 'sequence', s[1]) for s in selected]
+            paths = [os.path.join(self.path_3rscan_raw.split('/')[-1], scene_id, 'sequence', s[1]) for s in selected]
             rel2frame_mask[list(rel2frame.keys())[i]] = len(imgs)
 
             #imgs = [img.crop(scale_bbox(enclosing_bbox(s[2], s[3]), 1+(sc-1)/2, img))
