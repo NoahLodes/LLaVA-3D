@@ -170,7 +170,7 @@ class RGBDVideoProcessor(ProcessorMixin):
 
         return video_info
 
-    def extract_embodiedscan_video(self, video, data_dict, common_frames):
+    def extract_embodiedscan_video(self, video, data_dict, use_relationship):
         # video is the full path for the video
         video_path = Path(video)                                    # video_path:    LLaVA-3D-Demo-Data/scannet/scene0356_00         // data/3RScan/754e884c-ea24-2175-8b34-cead19d4198d
         video_name = str(Path(*video_path.parts[-2:])).lower()      # video_name:    scannet/scene0356_00                            // 3RScan/754e884c-ea24-2175-8b34-cead19d4198d
@@ -179,9 +179,9 @@ class RGBDVideoProcessor(ProcessorMixin):
                                                                     # self.scene dict keys: scannet/scene0191_00                     // 3rscan/3rscan0002
         
         if dataset == '3rscan':
-            print('Processing 3rscan: ')
+            print('         [extract_embodiedscan_video]: Processing 3rscan: ')
             video_info = dict(filter(lambda item: item[0].startswith(dataset), self.scene.items()))   # video_info: {3rscan/3rscan0002: {}}
-            video_frames = []                                   # video_frames: {'}3rscan/754e884c-ea24-2175-8b34-cead19d4198d/sequence/frame-000000.color.jpg': {pose: list, }}
+            video_frames = []                                   # video_frames: {'3rscan/754e884c-ea24-2175-8b34-cead19d4198d/sequence/frame-000000.color.jpg': {pose: list, }}
             for _, scene_attr in video_info.items():
                 for attr in scene_attr.keys(): 
                     if attr.startswith(video_name):
@@ -191,24 +191,22 @@ class RGBDVideoProcessor(ProcessorMixin):
             video_frames = [str(key) for key in video_info.keys() if key.startswith(dataset)]   # Remove other paramters, keep scannet/posed_images/scene0356_00/00000.jpg
         import pdb 
 
-        if not common_frames and len(video_frames) > self.num_frames:
+        if not use_relationship and len(video_frames) > self.num_frames:
             sample_factor = len(video_frames) // self.num_frames
             start_point = 0
             sample_ids = [(start_point + i*sample_factor) % len(video_frames) for i in range(self.num_frames)]
             sample_frames = [video_frames[i] for i in sample_ids] # sample_id: scannet/posed_images/scene0356_00/00000.jpg
-        elif not common_frames and len(video_frames) < self.num_frames:
+        elif not use_relationship and len(video_frames) < self.num_frames:
             repeat_times = (self.num_frames // len(video_frames)) + 1
             # Extend the list by repeating it and then slice to get exactly self.num_frames elements
             sample_frames = (video_frames * repeat_times)[:self.num_frames]
-        elif common_frames: 
+        elif use_relationship: 
             # Select the common frames of the relationship
-            print('common_frames: ', common_frames, type(common_frames), type(data_dict))
-            
             sample_frames = []
             for video_frame in video_frames[0].keys(): 
-                if video_frame in data_dict['common_frames'][int(common_frames)]: 
+                if video_frame in data_dict['rel2frame_path'][int(use_relationship)]: 
                     sample_frames.append(video_frame)
-            print(sample_frames[0])
+            
             #sample_frames = [video_frame for video_frame in video_frames if video_frame.key() in data_dict['common_frames'][int(common_frames)]]
         else:
             sample_frames = video_frames
@@ -387,7 +385,7 @@ class RGBDVideoProcessor(ProcessorMixin):
                    return_tensors='pt', 
                    mode='random', 
                    data_dict=None,
-                   common_frames=False,
+                   use_relationship=False,
                    device=None, 
                    text=None,
                    do_rescale=True,
@@ -397,27 +395,25 @@ class RGBDVideoProcessor(ProcessorMixin):
             video:  1. str video id / single video frame
                     2. list  list of video frames
         """
-        print('Starting the preprocessing fo the process[video]. ')
+        print('     Starting the preprocessing fo the process[video]. ')
         if isinstance(video, list):   # list of video frames only could be embodiedscan data
-            print('extract_embodiedscan_frames')
+            print('         Inside extract_embodiedscan_frames')
             video_info = self.extract_embodiedscan_frames(video)
         elif video.endswith('png') or video.endswith('jpg'):
-            print('extract_frames')
+            print('         Inside  extract_frames')
             video_info = self.extract_frames(video)
         elif 'frames' in video:  # scene-based odin data
-            print('INSIDE THE frames ')
+            print('         Inside frames ')
             if mode == 'random':
-                print(f'random: {video}, ')
                 video_info = self.subsample_frames(video) 
-                print(f'random: {video_info}')
             else:
                 raise NotImplementedError
         elif 'openscan' in video:
-            print('openscan')
+            print('         Inside openscan')
             video_info = self.extract_openscan_video(video)
         else:
-            print('extract_embodiedscan_video')
-            video_info = self.extract_embodiedscan_video(video, data_dict, common_frames)
+            print('         Inside  extract_embodiedscan_video')
+            video_info = self.extract_embodiedscan_video(video, data_dict, use_relationship)
 
         dataset = video_info['dataset']
         sample_frame_num = video_info['sample_frame_num']
@@ -441,6 +437,8 @@ class RGBDVideoProcessor(ProcessorMixin):
 
         for id, image_file in enumerate(video_info['sample_image_files']):
             image = Image.open(image_file).convert('RGB')
+            if dataset == "3rscan":
+                image = image.rotate(-90, expand=True)
             image_size = image.size
             image = self.image_processor.preprocess(images=image, do_rescale=do_rescale, do_normalize=do_normalize, return_tensors=return_tensors)['pixel_values'][0] # [3, H, W]
             depth_image = Image.open(video_info['sample_depth_image_files'][id])

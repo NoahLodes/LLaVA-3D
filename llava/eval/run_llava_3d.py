@@ -57,7 +57,7 @@ def load_images(image_files):
     return out
 
 
-def eval_model(args, data_dict, common_frames):
+def eval_model(args, data_dict, use_relationship):
     # Model
     disable_torch_init()
 
@@ -80,9 +80,7 @@ def eval_model(args, data_dict, common_frames):
     tokenizer, model, processor, context_len = load_pretrained_model(
         args.model_path, args.model_base, model_name, torch_dtype=torch_dtype
     )
-
     qs = args.query
-
     matches = re.search(r"\[([^\]]+)\]", qs)
     if matches:
         coord_list = [float(x) for x in matches.group(1).split(',')]
@@ -149,7 +147,6 @@ def eval_model(args, data_dict, common_frames):
         clicks_tensor = None
 
     if mode == 'video': 
-        # process_video_common_frames
         videos_dict = process_videos(
             args.video_path,
             processor['video'],
@@ -157,39 +154,12 @@ def eval_model(args, data_dict, common_frames):
             device=model.device,
             text=args.query, 
             data_dict=data_dict,
-            common_frames=common_frames,
+            use_relationship=use_relationship,
         )
         images_tensor = videos_dict['images'].to(model.device, dtype=torch_dtype) # Shape: [B, num_frames, channels, H, W]=[1, 20, 3, 336, 336]
-        print(f'Video process has finished:: {images_tensor.shape[1]} number of frames for relationship: {common_frames}')
+        print(f'Video process has finished: {images_tensor.shape[1]} number of frames for relationship: {use_relationship}')
         #pdb.set_trace()
         
-        #TODO: Store the img 90 depths and poses instrinsics
-        """        
-        first_frame = images_tensor[0, 0]  # First frame
-        tenth_frame = images_tensor[0, 9]  # 10th frame
-
-        # Convert to (H, W, C) format and move to CPU
-        first_frame_np = first_frame.permute(1, 2, 0).cpu().to(torch.float32).numpy()
-        tenth_frame_np = tenth_frame.permute(1, 2, 0).cpu().to(torch.float32).numpy()
-
-        # Convert pixel values to uint8 (assuming input is in range [0,1])
-        first_frame_np = (first_frame_np * 255).astype('uint8')
-        tenth_frame_np = (tenth_frame_np * 255).astype('uint8')
-
-        # Convert to PIL images
-        first_image = Image.fromarray(first_frame_np)
-        tenth_image = Image.fromarray(tenth_frame_np)
-
-        # Save images to disk
-        from pathlib import Path
-        current_directory = Path.cwd()
-        print(f"Current directory: {current_directory}")
-        first_image.save('scene0356_00_00000.jpg')
-        tenth_image.save('scene0356_00_00009.jpg')
-
-        print("Images saved successfully.")
-        """
-
         depths_tensor = videos_dict['depths'].to(model.device, dtype=torch_dtype)
         poses_tensor = videos_dict['poses'].to(model.device, dtype=torch_dtype)
         intrinsics_tensor = videos_dict['intrinsics'].to(model.device, dtype=torch_dtype)
@@ -275,8 +245,5 @@ if __name__ == "__main__":
     import pdb
     
     # Process relationships and pass them to eval_model
-    for instance in dataset: 
-        data_dict = obtain_the_common_images(instance)
-    #data_dict = [obtain_the_common_images(instance) for instance in dataset]
-
-    eval_model(args, data_dict=data_dict, common_frames=4) 
+    for scene in dataset: 
+        eval_model(args, data_dict=scene, use_relationship=4) 

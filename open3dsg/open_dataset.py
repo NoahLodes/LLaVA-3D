@@ -422,8 +422,9 @@ class Open2D3DSGDataset(Dataset):
 
         return reference_imgs, rel2frame_mask
 
-    def blip_rel_frames(self, rel2frame, rel2frame_mask, scene_id, dataset, top_k=4, scales=2):
+    def blip_rel_frames(self, rel2frame, rel2frame_mask, scene_id, dataset, rel2frame_path, top_k=4, scales=2):
         reference_imgs = []
+        reference_paths = []
         rel2frame_mask = {k: v*top_k*scales for k, v in rel2frame_mask.items()}
         rel_images_idxs = []
 
@@ -437,6 +438,8 @@ class Open2D3DSGDataset(Dataset):
                 black_image = Image.new('RGB', blank_img_dim, (0, 0, 0))
                 reference_imgs.append([black_image]*top_k*scales)
                 rel2frame_mask[list(rel2frame.keys())[i]] = 0
+                reference_paths.append([])
+                rel_images_idxs.append([])
                 continue
             frames, s_pixels, o_pixels, s_vis, o_vis, s_bbox, o_bbox = tuple(np.array(t) for t in zip(*rel))
 
@@ -470,6 +473,8 @@ class Open2D3DSGDataset(Dataset):
                 black_image = Image.new('RGB', blank_img_dim, (0, 0, 0))
                 reference_imgs.append([black_image]*top_k*scales)
                 rel2frame_mask[list(rel2frame.keys())[i]] = 0
+                reference_paths.append([])
+                rel_images_idxs.append([])
                 continue
 
             ids = range(len(vis))
@@ -479,13 +484,14 @@ class Open2D3DSGDataset(Dataset):
             o_bbox = o_bbox[np.array(ids)]
             vis, frames, s_bbox, o_bbox = vis[:top_k], frames[:top_k], s_bbox[:top_k], o_bbox[:top_k]
             selected = list(zip(vis, frames, s_bbox, o_bbox))
-
+            
             #if dataset == 'scannet':
              #   imgs = [Image.open(os.path.join(CONF.PATH.SCANNET_RAW, "scannet_2d", scene_id, "color", s[1])) for s in selected]
             #else:
             imgs = [Image.open(os.path.join(CONF_PATH_R3SCAN_RAW, scene_id, 'sequence', s[1])) for s in selected]
             filenames = [s[1] for s in selected]
             indices = [int(re.search(r'frame-(\d+)\.color\.jpg', filename).group(1)) for filename in filenames]
+            paths = [os.path.join(CONF_PATH_R3SCAN_RAW.split('/')[-1], scene_id, 'sequence', s[1]) for s in selected]
             rel2frame_mask[list(rel2frame.keys())[i]] = len(imgs)
 
             #imgs = [img.crop(scale_bbox(enclosing_bbox(s[2], s[3]), 1+(sc-1)/2, img))
@@ -500,8 +506,10 @@ class Open2D3DSGDataset(Dataset):
 
             reference_imgs.append(imgs)
             rel_images_idxs.append(indices)
+            rel2frame_path.append(paths)
+            #rel2frame_path[objs] = [(s[1], i) for s in selected]
 
-        return reference_imgs, rel2frame_mask, rel_images_idxs
+        return reference_imgs, rel2frame_mask, rel2frame_path, rel_images_idxs
 
     def load_imgs(self, data_dict):
         obj_imgs, obj2frame_mask = self.obj_frame_selection(
@@ -528,13 +536,15 @@ class Open2D3DSGDataset(Dataset):
             data_dict['object_pixels'] = obj_frame_pixels
 
         if self.blip or self.llava:
-            rel_imgs, rel2frame_mask, rel_images_idxs = self.blip_rel_frames(
-                data_dict["rel2frame"], data_dict['rel2frame_mask'], data_dict["scene_id"], data_dict['dataset'], top_k=self.top_k_frames, scales=self.scales)
+            data_dict['rel2frame_path'] = []
+            rel_imgs, rel2frame_mask, rel2frame_path, rel_images_idxs = self.blip_rel_frames(
+                data_dict["rel2frame"], data_dict['rel2frame_mask'], data_dict["scene_id"], data_dict['dataset'], data_dict['rel2frame_path'], top_k=self.top_k_frames, scales=self.scales)
             blank_img_dim = (320, 240) if data_dict['dataset'] == 'scannet' else (224, 172)
             black_image = Image.new('RGB', blank_img_dim, (0, 0, 0))
             #rel_imgs.extend([[black_image]*self.top_k_frames*self.scales]*(self.max_rels-len(rel_imgs)))
             data_dict['blip_images'] = rel_imgs
             data_dict['blip_images_idxs'] = rel_images_idxs
+            data_dict['rel2frame_path'] = rel2frame_path
 
             data_dict['blip_mask'] = rel2frame_mask
 
