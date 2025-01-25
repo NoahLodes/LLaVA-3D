@@ -13,6 +13,7 @@ import pickle
 from tqdm.contrib.concurrent import process_map
 from functools import partial
 from multiprocessing import Manager
+import re
 
 from open3dsg.const import CONF_PATH_R3SCAN_RAW, CONF_PATH_R3SCAN_PROCESSED
 
@@ -427,13 +428,14 @@ class Open2D3DSGDataset(Dataset):
     def blip_rel_frames(self, rel2frame, rel2frame_mask, scene_id, dataset, top_k=4, scales=2):
         reference_imgs = []
         rel2frame_mask = {k: v*top_k*scales for k, v in rel2frame_mask.items()}
+        rel_images_idxs = []
 
         blank_img_dim = (320, 240) if dataset == 'scannet' else (224, 172)
         r3scan_bias = 0.5 if dataset == '3rscan' else 1
         # rel2frame = list(rel2frame.values())
         for i, rel in enumerate(rel2frame.values()):
-            # (frame, s_pixels, o_pixels, s_vis, o_vis, s_bbox, o_bbox)
-            # rel = rel2frame[i]
+
+            #Relationship not visible on two frames --> use only black images
             if len(rel) == 0:
                 black_image = Image.new('RGB', blank_img_dim, (0, 0, 0))
                 reference_imgs.append([black_image]*top_k*scales)
@@ -466,6 +468,7 @@ class Open2D3DSGDataset(Dataset):
                 pixels = s_pix_norm+o_pix_norm
                 vis = s_vis[vis_criterion] + o_vis[vis_criterion]
 
+            #Relationship not sufficiently visible in two frames --> use only black images
             else:
                 black_image = Image.new('RGB', blank_img_dim, (0, 0, 0))
                 reference_imgs.append([black_image]*top_k*scales)
@@ -484,6 +487,8 @@ class Open2D3DSGDataset(Dataset):
              #   imgs = [Image.open(os.path.join(CONF.PATH.SCANNET_RAW, "scannet_2d", scene_id, "color", s[1])) for s in selected]
             #else:
             imgs = [Image.open(os.path.join(CONF_PATH_R3SCAN_RAW, scene_id, 'sequence', s[1])) for s in selected]
+            filenames = [s[1] for s in selected]
+            indices = [int(re.search(r'frame-(\d+)\.color\.jpg', filename).group(1)) for filename in filenames]
             rel2frame_mask[list(rel2frame.keys())[i]] = len(imgs)
 
             #imgs = [img.crop(scale_bbox(enclosing_bbox(s[2], s[3]), 1+(sc-1)/2, img))
@@ -497,8 +502,9 @@ class Open2D3DSGDataset(Dataset):
                # imgs.extend([black_image]*((top_k*scales)-len(imgs)))
 
             reference_imgs.append(imgs)
+            rel_images_idxs.append(indices)
 
-        return reference_imgs, rel2frame_mask
+        return reference_imgs, rel2frame_mask, rel_images_idxs
 
     def load_imgs(self, data_dict):
         obj_imgs, obj2frame_mask = self.obj_frame_selection(
@@ -525,12 +531,13 @@ class Open2D3DSGDataset(Dataset):
             data_dict['object_pixels'] = obj_frame_pixels
 
         if self.blip or self.llava:
-            rel_imgs, rel2frame_mask = self.blip_rel_frames(
+            rel_imgs, rel2frame_mask, rel_images_idxs = self.blip_rel_frames(
                 data_dict["rel2frame"], data_dict['rel2frame_mask'], data_dict["scene_id"], data_dict['dataset'], top_k=self.top_k_frames, scales=self.scales)
             blank_img_dim = (320, 240) if data_dict['dataset'] == 'scannet' else (224, 172)
             black_image = Image.new('RGB', blank_img_dim, (0, 0, 0))
             #rel_imgs.extend([[black_image]*self.top_k_frames*self.scales]*(self.max_rels-len(rel_imgs)))
             data_dict['blip_images'] = rel_imgs
+            data_dict['blip_images_idxs'] = rel_images_idxs
 
             data_dict['blip_mask'] = rel2frame_mask
 
