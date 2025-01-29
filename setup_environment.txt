@@ -1,0 +1,24 @@
+# 1. Install Miniconda
+# 2. Add Miniconda to PATH so it's available in new terminal sessions
+# 3. Set environment variables for CUDA 11.7
+# 4. Verify that CUDA is set up correctly
+# 5. Install PyTorch 2.0.1 with CUDA 11.7, TorchVision, and Torchaudio
+# 6. Install other necessary dependencies (plyfile, numpy, bitarray, scipy, pytorch3d)
+
+
+bash ../Miniconda3-latest-Linux-x86_64.sh
+
+echo 'export PATH=/home/alegretelena/miniconda3/bin:$PATH' >> ~/.bashrc
+export CUDA_HOME=/usr/local/cuda-11.7
+export PATH=$CUDA_HOME/bin:$PATH
+export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
+source ~/.bashrc
+echo $CUDA_HOME
+
+
+conda create -n llava-3d python=3.10 -y
+conda activate llava-3d
+
+pip install torch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0 --index-url https://download.pytorch.org/whl/cu118
+pip install torch-scatter -f https://data.pyg.org/whl/torch-2.1.0+cu118.html
+pip install -e .

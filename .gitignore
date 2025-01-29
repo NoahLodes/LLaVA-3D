@@ -15,6 +15,7 @@ Detected*.zip
 llava_3d.egg-info
 .*
 data
+data1
 *.png
 *.yaml
 *.pyc
