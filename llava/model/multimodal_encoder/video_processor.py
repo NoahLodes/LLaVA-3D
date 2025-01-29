@@ -174,7 +174,7 @@ class RGBDVideoProcessor(ProcessorMixin):
 
         return video_info
 
-    def extract_embodiedscan_video(self, video, data_dict, use_relationship):
+    def extract_embodiedscan_video(self, video, data_dict, use_relationship, balance_img_with):
         # video is the full path for the video
         video_path = Path(video)                                    # video_path:    LLaVA-3D-Demo-Data/scannet/scene0356_00         // data/3RScan/754e884c-ea24-2175-8b34-cead19d4198d
         video_name = str(Path(*video_path.parts[-2:])).lower()      # video_name:    scannet/scene0356_00                            // 3RScan/754e884c-ea24-2175-8b34-cead19d4198d
@@ -210,7 +210,12 @@ class RGBDVideoProcessor(ProcessorMixin):
                 if video_frame in data_dict['rel2frame_path'][int(use_relationship)]: 
                     sample_frames.append(video_frame)
             
-            #sample_frames = [video_frame for video_frame in video_frames if video_frame.key() in data_dict['common_frames'][int(common_frames)]]
+            # Extend frames if there are not enough frames
+            if len(sample_frames) < self.num_frames: 
+              if balance_img_with == 'doubling_img':
+                # Extend the list by repeating it and then slice to get exactly self.num_frames elements
+                repeat_times = (self.num_frames // len(sample_frames)) + 1
+                sample_frames = (sample_frames * repeat_times)[:self.num_frames]
         else:
             sample_frames = video_frames
 
@@ -221,7 +226,6 @@ class RGBDVideoProcessor(ProcessorMixin):
             intrinsics = []
 
         for frame in sample_frames:
-            
             pose = np.array(video_frames[0][frame]['pose']) # 4x4 array
             image = os.path.join(video_folder, frame)
             
@@ -235,6 +239,7 @@ class RGBDVideoProcessor(ProcessorMixin):
                 intrinsics.append(intrinsic)  # (4, 4)
             else:
                 raise NotImplementedError
+
             images.append(image)
             depths.append(depth)
             poses.append(pose)
@@ -389,6 +394,7 @@ class RGBDVideoProcessor(ProcessorMixin):
                    mode='random', 
                    data_dict=None,
                    use_relationship=None,
+                   balance_img_with=None, 
                    device=None, 
                    text=None,
                    do_rescale=True,
@@ -410,7 +416,7 @@ class RGBDVideoProcessor(ProcessorMixin):
         elif 'openscan' in video:
             video_info = self.extract_openscan_video(video)
         else:
-            video_info = self.extract_embodiedscan_video(video, data_dict, use_relationship)
+            video_info = self.extract_embodiedscan_video(video, data_dict, use_relationship, balance_img_with)
 
         dataset = video_info['dataset']
         sample_frame_num = video_info['sample_frame_num']
@@ -451,6 +457,7 @@ class RGBDVideoProcessor(ProcessorMixin):
             if not isinstance(pose, np.ndarray):
                 pose = np.loadtxt(pose)
             pose = torch.from_numpy(pose).float()  # [4, 4]
+
             images.append(image)
             depth_images.append(depth_image)
             poses.append(pose)

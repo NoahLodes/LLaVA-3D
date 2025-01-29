@@ -188,7 +188,7 @@ def process_images(images, image_processor, model_cfg):
         new_images = torch.stack(new_images, dim=0)
     return new_images
 
-def process_videos(videos, video_processor, mode='random', data_dict=None, use_relationship=False, device=None, text=None):
+def process_videos(videos, video_processor, mode='random', data_dict=None, use_relationship=False, balance_img_with=None, device=None, text=None):
 
     if isinstance(videos, str):
         videos = [videos] # [..., './data/3rscan/754e884c-ea24-2175-8b34-cead19d4198d', ...]
@@ -196,7 +196,7 @@ def process_videos(videos, video_processor, mode='random', data_dict=None, use_r
     new_videos = []
     for video in videos:
         # video = ./data/3rscan/754e884c-ea24-2175-8b34-cead19d4198d // mode = random 
-        video = video_processor.preprocess(video, return_tensors='pt', mode=mode, data_dict=data_dict, use_relationship=use_relationship, device=device, text=text)
+        video = video_processor.preprocess(video, return_tensors='pt', mode=mode, data_dict=data_dict, use_relationship=use_relationship, balance_img_with=balance_img_with, device=device, text=text)
         new_videos.append(video)
 
     new_images = [video['images'] for video in new_videos]
