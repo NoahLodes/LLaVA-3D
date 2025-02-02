@@ -439,8 +439,6 @@ class RGBDVideoProcessor(ProcessorMixin):
 
         for id, image_file in enumerate(video_info['sample_image_files']):
             image = Image.open(image_file).convert('RGB')
-            if dataset == "3rscan":
-                image = image.rotate(-90, expand=True)
             image_size = image.size
             image = self.image_processor.preprocess(images=image, do_rescale=do_rescale, do_normalize=do_normalize, return_tensors=return_tensors)['pixel_values'][0] # [3, H, W]
             depth_image = Image.open(video_info['sample_depth_image_files'][id])
