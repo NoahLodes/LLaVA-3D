@@ -174,7 +174,7 @@ class RGBDVideoProcessor(ProcessorMixin):
 
         return video_info
 
-    def extract_embodiedscan_video(self, video, data_dict, use_relationship):
+    def extract_embodiedscan_video(self, video, data_dict, use_relationship, balance_img_with):
         # video is the full path for the video
         video_path = Path(video)                                    # video_path:    LLaVA-3D-Demo-Data/scannet/scene0356_00         // data/3RScan/754e884c-ea24-2175-8b34-cead19d4198d
         video_name = str(Path(*video_path.parts[-2:])).lower()      # video_name:    scannet/scene0356_00                            // 3RScan/754e884c-ea24-2175-8b34-cead19d4198d
@@ -210,7 +210,13 @@ class RGBDVideoProcessor(ProcessorMixin):
                 if video_frame in data_dict['rel2frame_path'][int(use_relationship)]: 
                     sample_frames.append(video_frame)
             
-            #sample_frames = [video_frame for video_frame in video_frames if video_frame.key() in data_dict['common_frames'][int(common_frames)]]
+            # Extend frames if there are not enough frames
+            if (len(sample_frames) < self.num_frames) and (len(sample_frames)>0) and balance_img_with == 'doubling_img':
+                # Extend the list by repeating it and then slice to get exactly self.num_frames elements
+                repeat_times = (self.num_frames // len(sample_frames)) + 1
+                sample_frames = (sample_frames * repeat_times)[:self.num_frames]
+            elif (len(sample_frames)<0): 
+              print(f'Relationship {int(use_relationship)} has no common frames.')
         else:
             sample_frames = video_frames
 
@@ -389,6 +395,7 @@ class RGBDVideoProcessor(ProcessorMixin):
                    mode='random', 
                    data_dict=None,
                    use_relationship=None,
+                   balance_img_with=None, 
                    device=None, 
                    text=None,
                    do_rescale=True,
