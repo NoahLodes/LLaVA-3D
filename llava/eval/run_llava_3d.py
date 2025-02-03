@@ -57,7 +57,7 @@ def load_images(image_files):
     return out
 
 
-def eval_model(args, data_dict, use_relationship):
+def eval_model(args, data_dict, use_relationship, balance_img_with):
     # Model
     disable_torch_init()
 
@@ -155,6 +155,7 @@ def eval_model(args, data_dict, use_relationship):
             text=args.query, 
             data_dict=data_dict,
             use_relationship=use_relationship,
+            balance_img_with=balance_img_with
         )
         images_tensor = videos_dict['images'].to(model.device, dtype=torch_dtype) # Shape: [B, num_frames, channels, H, W]=[1, 20, 3, 336, 336]
         print(f'Video process has finished: {images_tensor.shape[1]} number of frames for relationship: {use_relationship}')
@@ -246,4 +247,4 @@ if __name__ == "__main__":
     
     # Process relationships and pass them to eval_model
     for scene in dataset: 
-        eval_model(args, data_dict=scene, use_relationship=4) 
+        eval_model(args, data_dict=scene, use_relationship=4, balance_img_with=None) 
