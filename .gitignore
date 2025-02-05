@@ -19,3 +19,8 @@ data1
 *.png
 *.yaml
 *.pyc
+results 
+4bit_graph
+32float_graph
+graphs
+prompt_graphs
