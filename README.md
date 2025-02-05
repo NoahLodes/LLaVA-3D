@@ -1,6 +1,6 @@
 <h6 align="center"> P3DCV - TUM</h6>
 
-<img src="./reports/slides/graphs.png" alt="BCN Map4Tourism Logo" width="2000">
+<img src="./reports/slides/graphs.png" alt="Graphs" width="2000">
 
 <br>
 <p align="center">
