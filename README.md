@@ -33,12 +33,12 @@ We aim to refine scene object relationships by enhancing 3D spatial awareness, b
 ## Model Architecture
 <div align="center">
   <figure style="display:inline-block; margin-right:20px; text-align:center;">
-    <img src="./reports/slides/llava3d.png" alt="LLaVA-3D Approach 1 Architecture" width="400"/>
+    <img src="./reports/slides/llava3d.png" alt="LLaVA-3D Approach 1 Architecture" width="500"/>
     <figcaption>Figure 1: LLaVA-3D Approach 1 Architecture</figcaption>
   </figure>
 
   <figure style="display:inline-block; text-align:center;">
-    <img src="./reports/slides/blip.png" alt="BLIP Approach 1 Architecture" width="400"/>
+    <img src="./reports/slides/blip.png" alt="BLIP Approach 1 Architecture" width="500"/>
     <figcaption>Figure 2: BLIP Approach 2 Architecture</figcaption>
   </figure>
 </div>
