@@ -448,7 +448,7 @@ class RGBDVideoProcessor(ProcessorMixin):
             image_size = image.size
             image = self.image_processor.preprocess(images=image, do_rescale=do_rescale, do_normalize=do_normalize, return_tensors=return_tensors)['pixel_values'][0] # [3, H, W]
             depth_image = Image.open(video_info['sample_depth_image_files'][id])
-            depth_image_size = depth_image.size
+            depth_image_size = depth_image.sizegit
             depth_image, resize_shape = self.preprocess_depth_image(depth_image, do_depth_scale=do_depth_scale, depth_scale=depth_scale)
             depth_image = torch.as_tensor(np.ascontiguousarray(depth_image)).float() # [H, W]
             pose = video_info['sample_pose_files'][id]
